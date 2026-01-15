@@ -75,6 +75,9 @@ REFERENCE_IMAGES = {
 DEFAULT_PROMPT_SUFFIX = (
     "((masterpiece, best quality, ultra-detailed, photorealistic, 8k, sharp focus))"
 )
+REFERENCE_EDIT_INSTRUCTION = (
+    "referenceの男性をpromptのイメージに修正して、ただし構図は変えず、元画像に忠実にpromptの改変を加えてください"
+)
 NO_TEXT_TOGGLE_SUFFIX = (
     "((no background text, no symbols, no markings, no letters anywhere, no typography, "
     "no signboard, no watermark, no logo, no text, no subtitles, no labels, no poster elements, neutral background))"
@@ -991,6 +994,7 @@ def main() -> None:
         prompt_components: List[str] = []
         if stripped_prompt:
             prompt_components.append(stripped_prompt)
+        prompt_components.append(REFERENCE_EDIT_INSTRUCTION)
         prompt_components.extend([DEFAULT_PROMPT_SUFFIX, NO_TEXT_TOGGLE_SUFFIX])
         prompt_for_request = "\n".join(prompt_components)
         reference_image_bytes = load_reference_image_bytes(reference_path)
