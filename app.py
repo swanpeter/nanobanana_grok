@@ -77,7 +77,7 @@ REFERENCE_IMAGES = [
     },
     {
         "label": "公園おじさん",
-        "path": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
+        "path": os.path.join(os.path.dirname(__file__), "park_man.jpg"),
     },
     {
         "label": "柴田理恵さん",
@@ -96,7 +96,7 @@ DEFAULT_PROMPT_SUFFIX = (
     "((masterpiece, best quality, ultra-detailed, photorealistic, 8k, sharp focus))"
 )
 REFERENCE_EDIT_INSTRUCTION = (
-    "referenceの男性をpromptのイメージに修正して、ただし構図は変えず、元画像に忠実にpromptの改変を加えてください"
+    "referenceをpromptのイメージに修正して、ただし構図は変えず、元画像に忠実にpromptの改変を加えてください"
 )
 NO_TEXT_TOGGLE_SUFFIX = (
     "((no background text, no symbols, no markings, no letters anywhere, no typography, "
