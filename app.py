@@ -4,6 +4,7 @@ import io
 import os
 import tempfile
 import time
+import unicodedata
 import uuid
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
@@ -480,6 +481,34 @@ def load_reference_image_bytes(path: str) -> Optional[bytes]:
             return file_handle.read()
     except Exception:
         return None
+
+
+def resolve_reference_path(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    if os.path.exists(path):
+        return path
+    directory = os.path.dirname(path)
+    filename = os.path.basename(path)
+    if not os.path.isdir(directory):
+        return None
+    try:
+        entries = os.listdir(directory)
+    except Exception:
+        return None
+    desired = {
+        unicodedata.normalize("NFC", filename),
+        unicodedata.normalize("NFD", filename),
+    }
+    for entry in entries:
+        normalized_entry = {
+            entry,
+            unicodedata.normalize("NFC", entry),
+            unicodedata.normalize("NFD", entry),
+        }
+        if desired & normalized_entry:
+            return os.path.join(directory, entry)
+    return None
 
 
 def get_image_dimensions(image_bytes: Optional[bytes]) -> Optional[Tuple[int, int]]:
@@ -1034,11 +1063,14 @@ def main() -> None:
         else None
     )
     reference_path = reference_entry["path"] if reference_entry else None
-    reference_thumb = load_reference_image_bytes(reference_path) if reference_path else None
+    resolved_reference_path = resolve_reference_path(reference_path) if reference_path else None
+    reference_thumb = (
+        load_reference_image_bytes(resolved_reference_path) if resolved_reference_path else None
+    )
     if reference_thumb:
         resized_thumb = resize_image_bytes_to_height(reference_thumb, 200)
-        if reference_path:
-            caption = os.path.splitext(os.path.basename(reference_path))[0]
+        if resolved_reference_path:
+            caption = os.path.splitext(os.path.basename(resolved_reference_path))[0]
         elif reference_entry:
             caption = str(reference_entry.get("label", ""))
         else:
