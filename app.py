@@ -1024,9 +1024,13 @@ def main() -> None:
         format_func=lambda idx: REFERENCE_IMAGES[idx]["label"],
         horizontal=True,
     )
+    try:
+        reference_index_value = int(reference_index)
+    except (TypeError, ValueError):
+        reference_index_value = -1
     reference_entry = (
-        REFERENCE_IMAGES[reference_index]
-        if isinstance(reference_index, int) and 0 <= reference_index < len(REFERENCE_IMAGES)
+        REFERENCE_IMAGES[reference_index_value]
+        if 0 <= reference_index_value < len(REFERENCE_IMAGES)
         else None
     )
     reference_path = reference_entry["path"] if reference_entry else None
