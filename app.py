@@ -63,14 +63,16 @@ def rerun_app() -> None:
 
 
 TITLE = "Gemini 画像生成"
-MODEL_NAME = "models/gemini-2.5-flash-image-preview"
+MODEL_NAME = "models/gemini-2.5-flash-image"
 IMAGE_ASPECT_RATIO = "16:9"
 COOKIE_KEY = "logged_in"
 SESSION_COOKIE_KEY = "browser_session_id"
 HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
 REFERENCE_IMAGES = {
-    "akiyama": os.path.join(os.path.dirname(__file__), "akiyama.jpg"),
-    "cookie": os.path.join(os.path.dirname(__file__), "cookie.jpg"),
+    "公園おじさん": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
+    "春日さん": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
+    "鈴木雅之": os.path.join(os.path.dirname(__file__), "鈴木雅之.png"),
+    "４コマ漫画": os.path.join(os.path.dirname(__file__), "４コマ漫画.png"),
 }
 DEFAULT_PROMPT_SUFFIX = (
     "((masterpiece, best quality, ultra-detailed, photorealistic, 8k, sharp focus))"
