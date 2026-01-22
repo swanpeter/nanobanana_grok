@@ -475,6 +475,27 @@ def get_image_dimensions(image_bytes: Optional[bytes]) -> Optional[Tuple[int, in
         return None
 
 
+def resize_image_bytes_to_height(image_bytes: Optional[bytes], target_height: int) -> Optional[bytes]:
+    if not image_bytes:
+        return None
+    if target_height <= 0:
+        return image_bytes
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            width, height = image.size
+            if height <= 0:
+                return image_bytes
+            scale = target_height / height
+            target_width = max(1, int(width * scale))
+            resized = image.resize((target_width, target_height), Image.LANCZOS)
+            buffer = io.BytesIO()
+            save_format = image.format if image.format else "PNG"
+            resized.save(buffer, format=save_format)
+            return buffer.getvalue()
+    except Exception:
+        return image_bytes
+
+
 def extract_parts(candidate: object) -> Sequence:
     content = getattr(candidate, "content", None)
     parts = getattr(content, "parts", None) if content is not None else None
@@ -986,41 +1007,11 @@ def main() -> None:
         horizontal=True,
     )
     reference_path = REFERENCE_IMAGES.get(reference_label)
-
-    reference_entries: List[Dict[str, object]] = []
-    min_height: Optional[int] = None
-    for label, path in REFERENCE_IMAGES.items():
-        image_bytes = load_reference_image_bytes(path)
-        dimensions = get_image_dimensions(image_bytes)
-        if dimensions:
-            width, height = dimensions
-            min_height = height if min_height is None else min(min_height, height)
-        reference_entries.append(
-            {
-                "label": label,
-                "path": path,
-                "bytes": image_bytes,
-                "dimensions": dimensions,
-            }
-        )
-
-    if min_height and reference_entries:
-        cols = st.columns(len(reference_entries))
-        for col, entry in zip(cols, reference_entries):
-            label = entry["label"]
-            path = entry["path"]
-            image_bytes = entry["bytes"]
-            dimensions = entry["dimensions"]
-            caption = os.path.basename(path) if path else str(label)
-            if label == reference_label:
-                caption = f"{caption} (選択中)"
-            with col:
-                if image_bytes and dimensions:
-                    width, height = dimensions
-                    display_width = int(width * min_height / max(height, 1))
-                    st.image(image_bytes, width=display_width, caption=caption)
-                else:
-                    st.warning(f"{caption} を読み込めませんでした。")
+    reference_thumb = load_reference_image_bytes(reference_path) if reference_path else None
+    if reference_thumb:
+        resized_thumb = resize_image_bytes_to_height(reference_thumb, 200)
+        caption = os.path.basename(reference_path) if reference_path else reference_label
+        st.image(resized_thumb, caption=caption)
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
