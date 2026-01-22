@@ -1069,13 +1069,7 @@ def main() -> None:
     )
     if reference_thumb:
         resized_thumb = resize_image_bytes_to_height(reference_thumb, 200)
-        if resolved_reference_path:
-            caption = os.path.splitext(os.path.basename(resolved_reference_path))[0]
-        elif reference_entry:
-            caption = str(reference_entry.get("label", ""))
-        else:
-            caption = ""
-        st.image(resized_thumb, caption=caption)
+        st.image(resized_thumb)
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
