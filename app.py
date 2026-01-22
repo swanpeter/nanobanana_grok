@@ -11,6 +11,7 @@ import json
 
 import streamlit as st
 import streamlit.components.v1 as components
+from PIL import Image
 try:
     from streamlit_cookies_controller import CookieController
 except ImportError:
@@ -71,6 +72,7 @@ HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
 REFERENCE_IMAGES = {
     "公園おじさん": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
     "春日さん": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
+    "柴田理恵": os.path.join(os.path.dirname(__file__), "柴田理恵.jpg"),
     "鈴木雅之": os.path.join(os.path.dirname(__file__), "鈴木雅之.png"),
     "４コマ漫画": os.path.join(os.path.dirname(__file__), "４コマ漫画.png"),
 }
@@ -459,6 +461,16 @@ def load_reference_image_bytes(path: str) -> Optional[bytes]:
     try:
         with open(path, "rb") as file_handle:
             return file_handle.read()
+    except Exception:
+        return None
+
+
+def get_image_dimensions(image_bytes: Optional[bytes]) -> Optional[Tuple[int, int]]:
+    if not image_bytes:
+        return None
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as image:
+            return image.width, image.height
     except Exception:
         return None
 
@@ -974,10 +986,41 @@ def main() -> None:
         horizontal=True,
     )
     reference_path = REFERENCE_IMAGES.get(reference_label)
-    reference_thumb = load_reference_image_bytes(reference_path) if reference_path else None
-    if reference_thumb:
-        caption = os.path.basename(reference_path) if reference_path else reference_label
-        st.image(reference_thumb, width=220, caption=caption)
+
+    reference_entries: List[Dict[str, object]] = []
+    min_height: Optional[int] = None
+    for label, path in REFERENCE_IMAGES.items():
+        image_bytes = load_reference_image_bytes(path)
+        dimensions = get_image_dimensions(image_bytes)
+        if dimensions:
+            width, height = dimensions
+            min_height = height if min_height is None else min(min_height, height)
+        reference_entries.append(
+            {
+                "label": label,
+                "path": path,
+                "bytes": image_bytes,
+                "dimensions": dimensions,
+            }
+        )
+
+    if min_height and reference_entries:
+        cols = st.columns(len(reference_entries))
+        for col, entry in zip(cols, reference_entries):
+            label = entry["label"]
+            path = entry["path"]
+            image_bytes = entry["bytes"]
+            dimensions = entry["dimensions"]
+            caption = os.path.basename(path) if path else str(label)
+            if label == reference_label:
+                caption = f"{caption} (選択中)"
+            with col:
+                if image_bytes and dimensions:
+                    width, height = dimensions
+                    display_width = int(width * min_height / max(height, 1))
+                    st.image(image_bytes, width=display_width, caption=caption)
+                else:
+                    st.warning(f"{caption} を読み込めませんでした。")
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
