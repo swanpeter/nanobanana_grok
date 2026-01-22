@@ -71,12 +71,12 @@ SESSION_COOKIE_KEY = "browser_session_id"
 HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
 REFERENCE_IMAGES = [
     {
-        "label": "公園おじさん",
-        "path": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
-    },
-    {
         "label": "春日さん",
         "path": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
+    },
+    {
+        "label": "公園おじさん",
+        "path": os.path.join(os.path.dirname(__file__), "park_oji.jpg"),
     },
     {
         "label": "柴田理恵",
