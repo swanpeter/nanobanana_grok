@@ -69,13 +69,28 @@ IMAGE_ASPECT_RATIO = "16:9"
 COOKIE_KEY = "logged_in"
 SESSION_COOKIE_KEY = "browser_session_id"
 HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
-REFERENCE_IMAGES = {
-    "公園おじさん": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
-    "春日さん": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
-    "柴田理恵": os.path.join(os.path.dirname(__file__), "柴田理恵.jpg"),
-    "鈴木雅之": os.path.join(os.path.dirname(__file__), "鈴木雅之.png"),
-    "４コマ漫画": os.path.join(os.path.dirname(__file__), "４コマ漫画.png"),
-}
+REFERENCE_IMAGES = [
+    {
+        "label": "公園おじさん",
+        "path": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
+    },
+    {
+        "label": "春日さん",
+        "path": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
+    },
+    {
+        "label": "柴田理恵",
+        "path": os.path.join(os.path.dirname(__file__), "柴田理恵.jpg"),
+    },
+    {
+        "label": "鈴木雅之",
+        "path": os.path.join(os.path.dirname(__file__), "鈴木雅之.png"),
+    },
+    {
+        "label": "４コマ漫画",
+        "path": os.path.join(os.path.dirname(__file__), "４コマ漫画.png"),
+    },
+]
 DEFAULT_PROMPT_SUFFIX = (
     "((masterpiece, best quality, ultra-detailed, photorealistic, 8k, sharp focus))"
 )
@@ -101,6 +116,8 @@ def _normalize_credential(value: Optional[str]) -> Optional[str]:
         if stripped:
             return stripped
     return None
+
+
 
 
 def get_secret_auth_credentials() -> Tuple[Optional[str], Optional[str]]:
@@ -1001,16 +1018,27 @@ def main() -> None:
     api_key = load_configured_api_key()
 
     prompt = st.text_area("Prompt", height=150, placeholder="描いてほしい内容を入力してください")
-    reference_label = st.radio(
+    reference_index = st.radio(
         "参照画像を選択",
-        options=list(REFERENCE_IMAGES.keys()),
+        options=list(range(len(REFERENCE_IMAGES))),
+        format_func=lambda idx: REFERENCE_IMAGES[idx]["label"],
         horizontal=True,
     )
-    reference_path = REFERENCE_IMAGES.get(reference_label)
+    reference_entry = (
+        REFERENCE_IMAGES[reference_index]
+        if isinstance(reference_index, int) and 0 <= reference_index < len(REFERENCE_IMAGES)
+        else None
+    )
+    reference_path = reference_entry["path"] if reference_entry else None
     reference_thumb = load_reference_image_bytes(reference_path) if reference_path else None
     if reference_thumb:
         resized_thumb = resize_image_bytes_to_height(reference_thumb, 200)
-        caption = os.path.basename(reference_path) if reference_path else reference_label
+        if reference_path:
+            caption = os.path.splitext(os.path.basename(reference_path))[0]
+        elif reference_entry:
+            caption = str(reference_entry.get("label", ""))
+        else:
+            caption = ""
         st.image(resized_thumb, caption=caption)
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
