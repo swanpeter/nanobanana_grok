@@ -71,20 +71,20 @@ SESSION_COOKIE_KEY = "browser_session_id"
 HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
 REFERENCE_IMAGES = [
     {
-        "label": "春日さん",
-        "path": os.path.join(os.path.dirname(__file__), "春日さん.jpeg"),
+        "label": "春日俊彰さん",
+        "path": os.path.join(os.path.dirname(__file__), "春日俊彰さん.jpeg"),
     },
     {
         "label": "公園おじさん",
-        "path": os.path.join(os.path.dirname(__file__), "park_oji.jpg"),
+        "path": os.path.join(os.path.dirname(__file__), "公園おじさん.jpg"),
     },
     {
-        "label": "柴田理恵",
-        "path": os.path.join(os.path.dirname(__file__), "柴田理恵.jpg"),
+        "label": "柴田理恵さん",
+        "path": os.path.join(os.path.dirname(__file__), "柴田理恵さん.jpg"),
     },
     {
-        "label": "鈴木雅之",
-        "path": os.path.join(os.path.dirname(__file__), "鈴木雅之.png"),
+        "label": "鈴木雅之さん",
+        "path": os.path.join(os.path.dirname(__file__), "鈴木雅之さん.png"),
     },
     {
         "label": "４コマ漫画",
