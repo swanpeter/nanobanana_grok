@@ -976,7 +976,8 @@ def main() -> None:
     reference_path = REFERENCE_IMAGES.get(reference_label)
     reference_thumb = load_reference_image_bytes(reference_path) if reference_path else None
     if reference_thumb:
-        st.image(reference_thumb, width=220, caption=f"{reference_label}.jpg")
+        caption = os.path.basename(reference_path) if reference_path else reference_label
+        st.image(reference_thumb, width=220, caption=caption)
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
