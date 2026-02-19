@@ -661,7 +661,6 @@ def main() -> None:
         placeholder="IKKOさん・怯える猫・猫・柴田理恵さん・鈴木雅之さんの要素を含む内容を入力してください",
     )
     reference_index = st.radio(
-        "参照画像を選択（IKKOさん / 怯える猫 / 猫 / 柴田理恵さん / 鈴木雅之さん）",
         options=list(range(len(REFERENCE_IMAGES))),
         format_func=lambda idx: REFERENCE_IMAGES[idx]["label"],
         horizontal=True,
