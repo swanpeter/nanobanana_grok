@@ -38,8 +38,8 @@ except ImportError:
     st.stop()
 
 
-TITLE = "猫テーマ画像生成"
-APP_TITLE = "猫テーマ 脳内大喜利"
+TITLE = "脳内大喜利"
+APP_TITLE = "脳内大喜利"
 MODEL_NAME = "models/gemini-2.5-flash-image"
 IMAGE_ASPECT_RATIO = "16:9"
 REFERENCE_IMAGES = [
@@ -655,9 +655,9 @@ def main() -> None:
     api_key = load_configured_api_key()
 
     prompt = st.text_area(
-        "Prompt（猫テーマ）",
+        "Prompt",
         height=150,
-        placeholder="IKKOさん・怯える猫・猫・柴田理恵さん・鈴木雅之さんの要素を含む内容を入力してください",
+        placeholder="",
     )
     reference_index = st.radio(
         "",
@@ -685,7 +685,7 @@ def main() -> None:
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
-    if st.button("猫テーマでGenerate", type="primary"):
+    if st.button("Generate", type="primary"):
         if not api_key:
             st.warning("Gemini API key が設定されていません。Streamlit secrets などで設定してください。")
             st.stop()
