@@ -2,8 +2,6 @@ import base64
 import datetime
 import io
 import os
-import tempfile
-import time
 import unicodedata
 import uuid
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -13,10 +11,16 @@ import json
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
-try:
-    from streamlit_cookies_controller import CookieController
-except ImportError:
-    CookieController = None
+
+from basic_setting import (
+    decode_image_data,
+    get_secret_value,
+    init_history,
+    logout,
+    persist_history_to_storage,
+    require_login,
+    sync_cookie_controller,
+)
 
 try:
     from streamlit.runtime.secrets import StreamlitSecretNotFoundError
@@ -34,62 +38,23 @@ except ImportError:
     )
     st.stop()
 
-def get_secret_value(key: str) -> Optional[str]:
-    try:
-        secrets_obj = st.secrets
-    except StreamlitSecretNotFoundError:
-        return None
-    except Exception:
-        return None
-    try:
-        return secrets_obj[key]
-    except (KeyError, TypeError, StreamlitSecretNotFoundError):
-        pass
-    get_method = getattr(secrets_obj, "get", None)
-    if callable(get_method):
-        try:
-            return get_method(key)
-        except Exception:
-            return None
-    return None
 
-
-def rerun_app() -> None:
-    rerun = getattr(st, "rerun", None)
-    if callable(rerun):
-        rerun()
-        return
-    experimental_rerun = getattr(st, "experimental_rerun", None)
-    if callable(experimental_rerun):
-        experimental_rerun()
-
-
-TITLE = "Gemini 画像生成"
+TITLE = "猫テーマ画像生成"
+APP_TITLE = "猫テーマ 脳内大喜利"
 MODEL_NAME = "models/gemini-2.5-flash-image"
 IMAGE_ASPECT_RATIO = "16:9"
-COOKIE_KEY = "logged_in"
-SESSION_COOKIE_KEY = "browser_session_id"
-HISTORY_DIR = os.path.join(tempfile.gettempdir(), "nanobanana_history")
 REFERENCE_IMAGES = [
     {
-        "label": "春日俊彰さん",
-        "path": os.path.join(os.path.dirname(__file__), "春日俊彰さん.jpeg"),
+        "label": "IKKOさん",
+        "path": os.path.join(os.path.dirname(__file__), "IKKOさん.jpeg"),
     },
     {
-        "label": "公園おじさん",
-        "path": os.path.join(os.path.dirname(__file__), "park_man.jpg"),
+        "label": "怯える猫",
+        "path": os.path.join(os.path.dirname(__file__), "怯える猫.jpg"),
     },
     {
-        "label": "柴田理恵さん",
-        "path": os.path.join(os.path.dirname(__file__), "柴田理恵さん.jpg"),
-    },
-    {
-        "label": "鈴木雅之さん",
-        "path": os.path.join(os.path.dirname(__file__), "鈴木雅之さん.png"),
-    },
-    {
-        "label": "４コマ漫画",
-        "path": os.path.join(os.path.dirname(__file__), "４コマ漫画.png"),
+        "label": "猫",
+        "path": os.path.join(os.path.dirname(__file__), "猫.jpg"),
     },
 ]
 DEFAULT_PROMPT_SUFFIX = (
@@ -111,344 +76,6 @@ DEFAULT_GEMINI_API_KEY = (
 )
 
 
-def _normalize_credential(value: Optional[str]) -> Optional[str]:
-    if isinstance(value, str):
-        stripped = value.strip()
-        if stripped:
-            return stripped
-    return None
-
-
-
-
-def get_secret_auth_credentials() -> Tuple[Optional[str], Optional[str]]:
-    try:
-        secrets_obj = st.secrets
-    except StreamlitSecretNotFoundError:
-        return None, None
-    except Exception:
-        return None, None
-
-    auth_section: Optional[Dict[str, Any]] = None
-    if isinstance(secrets_obj, dict):
-        auth_section = secrets_obj.get("auth")
-    else:
-        auth_section = getattr(secrets_obj, "get", lambda _key, _default=None: None)("auth")
-
-    def _get_from_container(container: object, key: str) -> Optional[Any]:
-        if isinstance(container, dict):
-            return container.get(key)
-        getter = getattr(container, "get", None)
-        if callable(getter):
-            try:
-                return getter(key)
-            except TypeError:
-                try:
-                    return getter(key, None)
-                except TypeError:
-                    return None
-        try:
-            return getattr(container, key)
-        except AttributeError:
-            return None
-
-    def _extract_credential(container: object, keys: Tuple[str, ...]) -> Optional[Any]:
-        for key in keys:
-            value = _get_from_container(container, key)
-            if value is not None:
-                return value
-        return None
-
-    username = None
-    password = None
-    if auth_section is not None:
-        username = _extract_credential(auth_section, ("username", "id", "user", "name"))
-        password = _extract_credential(auth_section, ("password", "pass", "pwd"))
-
-    if username is None:
-        username = get_secret_value("USERNAME") or get_secret_value("ID")
-    if password is None:
-        password = get_secret_value("PASSWORD") or get_secret_value("PASS")
-
-    normalized_username = _normalize_credential(str(username)) if username is not None else None
-    normalized_password = _normalize_credential(str(password)) if password is not None else None
-    return normalized_username, normalized_password
-
-
-def get_configured_auth_credentials() -> Tuple[str, str]:
-    secret_username, secret_password = get_secret_auth_credentials()
-    if secret_username and secret_password:
-        return secret_username, secret_password
-    return "mezamashi", "mezamashi"
-
-
-def _get_cookie_controller() -> Optional[object]:
-    if CookieController is None:
-        return None
-    controller = st.session_state.get("_cookie_controller")
-    if controller is None:
-        try:
-            controller = CookieController()
-        except Exception:
-            return None
-        st.session_state["_cookie_controller"] = controller
-    return controller
-
-
-def sync_cookie_controller() -> None:
-    controller = _get_cookie_controller()
-    if controller is None:
-        return
-    sync_stage = st.session_state.get("_cookies_sync_stage", 0)
-    if sync_stage == 0:
-        try:
-            controller.refresh()
-        except Exception:
-            return
-        st.session_state["_cookies_sync_stage"] = 1
-        rerun_app()
-        return
-    if sync_stage == 1:
-        try:
-            controller.refresh()
-        except Exception:
-            return
-        st.session_state["_cookies_sync_stage"] = 2
-
-
-def restore_login_from_cookie() -> bool:
-    controller = _get_cookie_controller()
-    if controller is None:
-        return False
-    for _ in range(2):
-        try:
-            controller.refresh()
-            if controller.get(COOKIE_KEY) == "1":
-                return True
-        except Exception:
-            return False
-        time.sleep(0.3)
-    return False
-
-
-def persist_login_to_cookie(value: bool) -> None:
-    controller = _get_cookie_controller()
-    if controller is None:
-        return
-    try:
-        if value:
-            controller.set(COOKIE_KEY, "1")
-            time.sleep(0.6)
-        else:
-            controller.remove(COOKIE_KEY)
-    except Exception:
-        return
-
-
-def _get_history_path(session_id: str) -> str:
-    os.makedirs(HISTORY_DIR, exist_ok=True)
-    safe_id = "".join(ch for ch in session_id if ch.isalnum() or ch in {"-", "_"})
-    return os.path.join(HISTORY_DIR, f"{safe_id}.json")
-
-
-def get_browser_session_id(create: bool = True) -> Optional[str]:
-    controller = _get_cookie_controller()
-    if controller is None:
-        return None
-    try:
-        controller.refresh()
-        session_id = controller.get(SESSION_COOKIE_KEY)
-    except Exception:
-        session_id = None
-    if session_id:
-        return str(session_id)
-    if not create:
-        return None
-    new_id = uuid.uuid4().hex
-    try:
-        controller.set(SESSION_COOKIE_KEY, new_id)
-        time.sleep(0.6)
-    except Exception:
-        return None
-    return new_id
-
-
-def _serialize_history(history: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    serialized: List[Dict[str, object]] = []
-    for entry in history:
-        image_bytes = entry.get("image_bytes")
-        if isinstance(image_bytes, (bytes, bytearray, memoryview)):
-            image_b64 = base64.b64encode(bytes(image_bytes)).decode("utf-8")
-        else:
-            image_b64 = None
-        serialized.append(
-            {
-                "id": entry.get("id"),
-                "prompt": entry.get("prompt"),
-                "model": entry.get("model"),
-                "no_text": entry.get("no_text"),
-                "image_b64": image_b64,
-            }
-        )
-    return serialized
-
-
-def _deserialize_history(payload: List[Dict[str, object]]) -> List[Dict[str, object]]:
-    history: List[Dict[str, object]] = []
-    for entry in payload:
-        image_b64 = entry.get("image_b64")
-        image_bytes = decode_image_data(image_b64) if image_b64 else None
-        history.append(
-            {
-                "id": entry.get("id"),
-                "prompt": entry.get("prompt"),
-                "model": entry.get("model"),
-                "no_text": entry.get("no_text"),
-                "image_bytes": image_bytes,
-            }
-        )
-    return history
-
-
-def load_history_from_storage() -> Optional[List[Dict[str, object]]]:
-    session_id = get_browser_session_id(create=False)
-    if not session_id:
-        return None
-    history_path = _get_history_path(session_id)
-    if not os.path.exists(history_path):
-        return None
-    try:
-        with open(history_path, "r", encoding="utf-8") as file_handle:
-            payload = json.load(file_handle)
-    except Exception:
-        return None
-    if not isinstance(payload, dict):
-        return None
-    entries = payload.get("history")
-    if not isinstance(entries, list):
-        return None
-    return _deserialize_history(entries)
-
-
-def persist_history_to_storage() -> None:
-    session_id = get_browser_session_id(create=True)
-    if not session_id:
-        return
-    history_path = _get_history_path(session_id)
-    payload = {
-        "updated_at": datetime.datetime.utcnow().isoformat(),
-        "history": _serialize_history(st.session_state.history),
-    }
-    try:
-        with open(history_path, "w", encoding="utf-8") as file_handle:
-            json.dump(payload, file_handle)
-    except Exception:
-        return
-
-
-def clear_history_storage() -> None:
-    session_id = get_browser_session_id(create=False)
-    if not session_id:
-        return
-    history_path = _get_history_path(session_id)
-    try:
-        if os.path.exists(history_path):
-            os.remove(history_path)
-    except Exception:
-        return
-
-
-def logout() -> None:
-    st.session_state["authenticated"] = False
-    persist_login_to_cookie(False)
-    clear_history_storage()
-    st.session_state.history = []
-    rerun_app()
-
-
-def inject_login_autofill_js() -> None:
-    components.html(
-        """
-        <script>
-        (function () {
-            const parent = window.parent;
-            if (!parent || !parent.document) {
-                return;
-            }
-            const doc = parent.document;
-            const inputs = Array.from(doc.querySelectorAll("input"));
-            if (!inputs.length) {
-                return;
-            }
-            let userInput = null;
-            let passInput = null;
-            for (const input of inputs) {
-                const label = (input.getAttribute("aria-label") || "").toLowerCase();
-                if (!userInput && (label === "id" || label === "user" || label === "username")) {
-                    userInput = input;
-                }
-                if (!passInput && (label === "pass" || label === "password")) {
-                    passInput = input;
-                }
-            }
-            if (userInput) {
-                userInput.setAttribute("name", "username");
-                userInput.setAttribute("autocomplete", "username");
-            }
-            if (passInput) {
-                passInput.setAttribute("name", "password");
-                passInput.setAttribute("autocomplete", "current-password");
-            }
-            const form = userInput ? userInput.form : null;
-            if (form) {
-                form.setAttribute("autocomplete", "on");
-            }
-        })();
-        </script>
-        """,
-        height=0,
-        scrolling=False,
-    )
-
-
-def require_login() -> None:
-    if "authenticated" not in st.session_state:
-        st.session_state["authenticated"] = False
-
-    if not st.session_state["authenticated"] and restore_login_from_cookie():
-        st.session_state["authenticated"] = True
-        get_browser_session_id(create=True)
-
-    if st.session_state["authenticated"]:
-        return
-
-    st.title("ログイン")
-
-    username, password = get_configured_auth_credentials()
-    if not username or not password:
-        st.info("ログイン情報が未設定です。管理者に連絡してください。")
-        st.stop()
-        return
-
-    with st.form("login_form", clear_on_submit=False):
-        input_username = st.text_input("ID")
-        input_password = st.text_input("PASS", type="password")
-        submitted = st.form_submit_button("ログイン")
-
-    inject_login_autofill_js()
-
-    if submitted:
-        if input_username == username and input_password == password:
-            st.session_state["authenticated"] = True
-            persist_login_to_cookie(True)
-            get_browser_session_id(create=True)
-            st.success("ログインしました。")
-            rerun_app()
-            return
-        st.error("IDまたはPASSが正しくありません。")
-    st.stop()
-
-
 def get_current_api_key() -> Optional[str]:
     api_key = st.session_state.get("config_api_key")
     if isinstance(api_key, str) and api_key.strip():
@@ -460,17 +87,6 @@ def load_configured_api_key() -> str:
     return get_current_api_key() or ""
 
 
-def decode_image_data(data: Optional[object]) -> Optional[bytes]:
-    if data is None:
-        return None
-    if isinstance(data, bytes):
-        return data
-    if isinstance(data, str):
-        try:
-            return base64.b64decode(data)
-        except (ValueError, TypeError):
-            return None
-    return None
 
 
 def load_reference_image_bytes(path: str) -> Optional[bytes]:
@@ -808,17 +424,6 @@ def upload_image_to_gcs(
         return None, None
 
 
-def init_history() -> None:
-    if "history" not in st.session_state:
-        st.session_state.history = []
-    if not st.session_state.get("_history_loaded"):
-        restored = load_history_from_storage()
-        if restored is not None:
-            st.session_state.history = restored
-            st.session_state["_history_loaded"] = True
-        else:
-            if get_browser_session_id(create=False) is not None or _get_cookie_controller() is None:
-                st.session_state["_history_loaded"] = True
 
 
 def ensure_lightbox_assets() -> None:
@@ -1038,17 +643,24 @@ def main() -> None:
     init_history()
     require_login()
 
-    with st.sidebar:
+    title_col, action_col = st.columns([5, 1])
+    with title_col:
+        st.title(APP_TITLE)
+    with action_col:
         if st.button("ログアウト"):
             logout()
 
-    st.title("脳内大喜利")
+    st.caption("参照画像は IKKOさん / 怯える猫 / 猫 から選択できます。")
 
     api_key = load_configured_api_key()
 
-    prompt = st.text_area("Prompt", height=150, placeholder="描いてほしい内容を入力してください")
+    prompt = st.text_area(
+        "Prompt（猫テーマ）",
+        height=150,
+        placeholder="IKKOさん・怯える猫・猫の要素を含む内容を入力してください",
+    )
     reference_index = st.radio(
-        "参照画像を選択",
+        "参照画像を選択（IKKOさん / 怯える猫 / 猫）",
         options=list(range(len(REFERENCE_IMAGES))),
         format_func=lambda idx: REFERENCE_IMAGES[idx]["label"],
         horizontal=True,
@@ -1073,7 +685,7 @@ def main() -> None:
     else:
         st.warning("参照画像のサムネイルを読み込めませんでした。")
 
-    if st.button("Generate", type="primary"):
+    if st.button("猫テーマでGenerate", type="primary"):
         if not api_key:
             st.warning("Gemini API key が設定されていません。Streamlit secrets などで設定してください。")
             st.stop()
