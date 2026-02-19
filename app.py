@@ -651,7 +651,6 @@ def main() -> None:
     require_login()
 
     st.title(APP_TITLE)
-    st.caption("参照画像は IKKOさん / 怯える猫 / 猫 / 柴田理恵さん / 鈴木雅之さん から選択できます。")
 
     api_key = load_configured_api_key()
 
