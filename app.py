@@ -16,7 +16,6 @@ from basic_setting import (
     decode_image_data,
     get_secret_value,
     init_history,
-    logout,
     persist_history_to_storage,
     require_login,
     sync_cookie_controller,
@@ -55,6 +54,14 @@ REFERENCE_IMAGES = [
     {
         "label": "猫",
         "path": os.path.join(os.path.dirname(__file__), "猫.jpg"),
+    },
+    {
+        "label": "柴田理恵さん",
+        "path": os.path.join(os.path.dirname(__file__), "柴田理恵さん.jpg"),
+    },
+    {
+        "label": "鈴木雅之さん",
+        "path": os.path.join(os.path.dirname(__file__), "鈴木雅之さん.png"),
     },
 ]
 DEFAULT_PROMPT_SUFFIX = (
@@ -643,24 +650,18 @@ def main() -> None:
     init_history()
     require_login()
 
-    title_col, action_col = st.columns([5, 1])
-    with title_col:
-        st.title(APP_TITLE)
-    with action_col:
-        if st.button("ログアウト"):
-            logout()
-
-    st.caption("参照画像は IKKOさん / 怯える猫 / 猫 から選択できます。")
+    st.title(APP_TITLE)
+    st.caption("参照画像は IKKOさん / 怯える猫 / 猫 / 柴田理恵さん / 鈴木雅之さん から選択できます。")
 
     api_key = load_configured_api_key()
 
     prompt = st.text_area(
         "Prompt（猫テーマ）",
         height=150,
-        placeholder="IKKOさん・怯える猫・猫の要素を含む内容を入力してください",
+        placeholder="IKKOさん・怯える猫・猫・柴田理恵さん・鈴木雅之さんの要素を含む内容を入力してください",
     )
     reference_index = st.radio(
-        "参照画像を選択（IKKOさん / 怯える猫 / 猫）",
+        "参照画像を選択（IKKOさん / 怯える猫 / 猫 / 柴田理恵さん / 鈴木雅之さん）",
         options=list(range(len(REFERENCE_IMAGES))),
         format_func=lambda idx: REFERENCE_IMAGES[idx]["label"],
         horizontal=True,
