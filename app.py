@@ -1,6 +1,7 @@
 import base64
 import datetime
 import io
+import mimetypes
 import os
 import unicodedata
 import uuid
@@ -62,6 +63,18 @@ REFERENCE_IMAGES = [
     {
         "label": "鈴木雅之さん",
         "path": os.path.join(os.path.dirname(__file__), "鈴木雅之さん.png"),
+    },
+    {
+        "label": "baby",
+        "path": os.path.join(os.path.dirname(__file__), "baby.png"),
+    },
+    {
+        "label": "あのちゃん",
+        "path": os.path.join(os.path.dirname(__file__), "あのちゃん.jpeg"),
+    },
+    {
+        "label": "ガチャピン",
+        "path": os.path.join(os.path.dirname(__file__), "ガチャピン.jpeg"),
     },
 ]
 DEFAULT_PROMPT_SUFFIX = (
@@ -132,6 +145,15 @@ def resolve_reference_path(path: Optional[str]) -> Optional[str]:
         if desired & normalized_entry:
             return os.path.join(directory, entry)
     return None
+
+
+def get_image_mime_type(path: Optional[str]) -> str:
+    if not path:
+        return "image/jpeg"
+    mime_type, _ = mimetypes.guess_type(path)
+    if isinstance(mime_type, str) and mime_type.startswith("image/"):
+        return mime_type
+    return "image/jpeg"
 
 
 def get_image_dimensions(image_bytes: Optional[bytes]) -> Optional[Tuple[int, int]]:
@@ -676,8 +698,9 @@ def main() -> None:
     )
     reference_path = reference_entry["path"] if reference_entry else None
     resolved_reference_path = resolve_reference_path(reference_path) if reference_path else None
+    active_reference_path = resolved_reference_path or reference_path
     reference_thumb = (
-        load_reference_image_bytes(resolved_reference_path) if resolved_reference_path else None
+        load_reference_image_bytes(active_reference_path) if active_reference_path else None
     )
     if reference_thumb:
         resized_thumb = resize_image_bytes_to_height(reference_thumb, 200)
@@ -692,7 +715,7 @@ def main() -> None:
         if not prompt.strip():
             st.warning("プロンプトを入力してください。")
             st.stop()
-        if not reference_path:
+        if not active_reference_path:
             st.error("参照画像が未選択です。")
             st.stop()
 
@@ -704,10 +727,11 @@ def main() -> None:
         prompt_components.append(REFERENCE_EDIT_INSTRUCTION)
         prompt_components.extend([DEFAULT_PROMPT_SUFFIX, NO_TEXT_TOGGLE_SUFFIX])
         prompt_for_request = "\n".join(prompt_components)
-        reference_image_bytes = load_reference_image_bytes(reference_path)
+        reference_image_bytes = load_reference_image_bytes(active_reference_path)
         if not reference_image_bytes:
             st.error("参照画像を読み込めませんでした。")
             st.stop()
+        reference_mime_type = get_image_mime_type(active_reference_path)
 
         with st.spinner("画像を生成しています..."):
             try:
@@ -715,7 +739,7 @@ def main() -> None:
                     model=MODEL_NAME,
                     contents=[
                         prompt_for_request,
-                        types.Part.from_bytes(data=reference_image_bytes, mime_type="image/jpeg"),
+                        types.Part.from_bytes(data=reference_image_bytes, mime_type=reference_mime_type),
                     ],
                     config=types.GenerateContentConfig(
                         response_modalities=["TEXT", "IMAGE"],
